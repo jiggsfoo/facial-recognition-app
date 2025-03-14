@@ -6,6 +6,8 @@
     <string>This application needs access to your camera for facial recognition.</string>
     <key>NSCameraUseContinuityCameraDeviceType</key>
     <true/>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>This application may need access to your microphone for video recording.</string>
     <key>CFBundleName</key>
     <string>Facial Recognition</string>
     <key>CFBundleIdentifier</key>
@@ -14,5 +16,9 @@
     <string>1.0</string>
     <key>CFBundleShortVersionString</key>
     <string>1.0</string>
+    <key>NSRequiresAquaSystemAppearance</key>
+    <false/>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.utilities</string>
 </dict>
 </plist> 

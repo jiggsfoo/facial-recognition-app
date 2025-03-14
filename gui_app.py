@@ -14,6 +14,7 @@ import numpy as np
 import platform
 import traceback
 import sys
+import subprocess
 from utils import load_known_faces, detect_and_display_faces, load_training_data, save_known_faces
 
 # Try to import face_recognition
@@ -44,6 +45,9 @@ if platform.system() == 'Darwin':
         
         # Print a message about using Info.plist
         print("Using Info.plist for macOS camera configuration")
+        
+        # Set the NSCameraUsageDescription environment variable
+        os.environ['NSCameraUsageDescription'] = 'This application needs access to your camera for facial recognition.'
 
 class FacialRecognitionApp:
     def __init__(self, window, window_title):
@@ -73,9 +77,6 @@ class FacialRecognitionApp:
         # Check if running on macOS
         self.is_macos = platform.system() == 'Darwin'
         
-        # Load known faces
-        self.known_face_encodings, self.known_face_names = load_known_faces(self.model_path)
-        
         # Create the main frame
         self.main_frame = ttk.Frame(window)
         self.main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
@@ -92,14 +93,21 @@ class FacialRecognitionApp:
         self.canvas = tk.Canvas(self.left_panel, bg="black")
         self.canvas.pack(fill=tk.BOTH, expand=True)
         
-        # Create the control panel
-        self.create_control_panel()
-        
-        # Create the status bar
+        # Create the status bar first so we can use it for messages
         self.status_var = tk.StringVar()
         self.status_var.set("Ready")
         self.status_bar = ttk.Label(window, textvariable=self.status_var, relief=tk.SUNKEN, anchor=tk.W)
         self.status_bar.pack(side=tk.BOTTOM, fill=tk.X)
+        
+        # For macOS, force a camera permission request to ensure Terminal/Python appears in the list
+        if self.is_macos:
+            self.force_camera_permission_request()
+        
+        # Create the control panel
+        self.create_control_panel()
+        
+        # Load known faces
+        self.known_face_encodings, self.known_face_names = load_known_faces(self.model_path)
         
         # Set the window close handler
         self.window.protocol("WM_DELETE_WINDOW", self.on_close)
@@ -332,11 +340,95 @@ class FacialRecognitionApp:
         else:
             self.start_camera()
     
+    def check_macos_camera_permissions(self):
+        """
+        Check and request camera permissions on macOS.
+        Returns True if permissions are granted, False otherwise.
+        """
+        if not self.is_macos:
+            return True
+        
+        self.status_var.set("Checking camera permissions...")
+        self.window.update()
+        
+        # Make a more explicit attempt to access the camera to trigger macOS permission dialog
+        try:
+            # First, try to open the camera with explicit properties to trigger the permission dialog
+            test_capture = cv2.VideoCapture(self.camera_index)
+            
+            # Set some properties to ensure the camera is actually accessed
+            test_capture.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+            test_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+            
+            # Try to read a frame to force the permission dialog
+            ret, frame = test_capture.read()
+            
+            # Check if we successfully accessed the camera
+            has_permission = test_capture.isOpened() and ret
+            
+            # Release the camera
+            test_capture.release()
+            
+            if has_permission:
+                self.status_var.set("Camera permission granted")
+                return True
+        except Exception as e:
+            print(f"Error accessing camera: {e}")
+            has_permission = False
+        
+        # If we couldn't access the camera, show a dialog explaining how to grant permissions
+        result = messagebox.askquestion(
+            "Camera Permission Required",
+            "This app needs camera access to function properly.\n\n"
+            "Would you like to open System Settings to grant camera permissions?\n\n"
+            "After Terminal/Python appears in the list:\n"
+            "1. Check the box next to Terminal/Python to grant permission\n"
+            "2. Restart this application\n\n"
+            "If Terminal/Python doesn't appear in the list, try running\n"
+            "the application again to trigger another permission request.",
+            icon='info'
+        )
+        
+        if result == 'yes':
+            # Open System Preferences to the Camera privacy settings
+            try:
+                # First try the newer macOS 13+ approach
+                subprocess.run([
+                    'open', 
+                    'x-apple.systempreferences:com.apple.preference.security?Privacy_Camera'
+                ])
+            except Exception as e:
+                print(f"Error opening System Preferences: {e}")
+                
+                # Fallback for older macOS versions
+                try:
+                    subprocess.run(['open', '/System/Library/PreferencePanes/Security.prefPane'])
+                    messagebox.showinfo(
+                        "Navigate to Camera Settings",
+                        "Please navigate to the Privacy tab, then select Camera from the list."
+                    )
+                except Exception as e:
+                    print(f"Error opening Security preferences: {e}")
+            
+            # Inform the user they need to restart the app
+            messagebox.showinfo(
+                "Restart Required",
+                "After granting camera permissions, please restart this application."
+            )
+        
+        self.status_var.set("Camera access denied. Please grant permissions and restart the app.")
+        return False
+
     def start_camera(self):
         self.camera_index = self.camera_var.get()
         self.recognition_threshold = self.threshold_var.get()
         self.scale_factor = self.scale_factor_var.get()
         self.performance_mode = self.performance_mode_var.get()
+        
+        # Check camera permissions on macOS
+        if self.is_macos and not self.check_macos_camera_permissions():
+            self.status_var.set("Camera access denied. Please grant permissions and restart the app.")
+            return
         
         # Initialize the video capture
         self.video_capture = cv2.VideoCapture(self.camera_index)
@@ -536,6 +628,11 @@ class FacialRecognitionApp:
             self.recognition_threshold = self.threshold_var.get()
             self.scale_factor = self.scale_factor_var.get()
             self.performance_mode = self.performance_mode_var.get()  # Get current performance mode setting
+            
+            # Check camera permissions on macOS
+            if self.is_macos and not self.check_macos_camera_permissions():
+                self.status_var.set("Camera access denied. Please grant permissions and restart the app.")
+                return
             
             # Initialize the video capture with high resolution
             self.video_capture = cv2.VideoCapture(self.camera_index)
@@ -936,6 +1033,11 @@ class FacialRecognitionApp:
         
         # Check if the camera is running
         if not self.is_running:
+            # Check camera permissions on macOS before starting the camera
+            if self.is_macos and not self.check_macos_camera_permissions():
+                self.status_var.set("Camera access denied. Please grant permissions and restart the app.")
+                return
+                
             messagebox.showerror("Error", "Please start the camera first.")
             return
         
@@ -1011,6 +1113,148 @@ class FacialRecognitionApp:
         
         # Destroy the window
         self.window.destroy()
+
+    def force_camera_permission_request(self):
+        """
+        Force macOS to show the camera permission dialog by explicitly trying to access the camera.
+        This helps ensure Terminal/Python appears in the permissions list.
+        """
+        if not self.is_macos:
+            return
+            
+        self.status_var.set("Attempting to trigger camera permission dialog...")
+        self.window.update()
+        
+        try:
+            # Create a visible window with instructions
+            cv2.namedWindow('Camera Access Required', cv2.WINDOW_NORMAL)
+            cv2.resizeWindow('Camera Access Required', 640, 480)
+            
+            # Create a blank image with text
+            img = np.zeros((480, 640, 3), dtype=np.uint8)
+            cv2.putText(img, "Requesting Camera Access...", (50, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+            cv2.putText(img, "If no permission dialog appears:", (50, 150), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 1)
+            cv2.putText(img, "1. Open System Settings manually", (50, 190), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 1)
+            cv2.putText(img, "2. Go to Privacy & Security > Camera", (50, 230), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 1)
+            cv2.putText(img, "3. Add Terminal/Python to the list", (50, 270), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 1)
+            cv2.putText(img, "Press any key to continue...", (50, 350), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 1)
+            
+            # Show the instructions
+            cv2.imshow('Camera Access Required', img)
+            cv2.waitKey(2000)  # Wait for 2 seconds or key press
+            
+            # Try multiple approaches to trigger the permission dialog
+            
+            # Approach 1: Standard OpenCV camera access
+            self.status_var.set("Approach 1: Standard OpenCV camera access")
+            self.window.update()
+            
+            camera = cv2.VideoCapture(self.camera_index)
+            camera.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+            camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+            
+            # Try to read frames
+            for i in range(10):
+                ret, frame = camera.read()
+                if ret and frame is not None:
+                    cv2.imshow('Camera Access Required', frame)
+                    cv2.waitKey(100)
+                    self.status_var.set(f"Approach 1: Frame {i+1}/10 captured")
+                    self.window.update()
+            
+            camera.release()
+            
+            # Approach 2: Use AVFoundation directly via environment variables
+            self.status_var.set("Approach 2: Using AVFoundation environment variables")
+            self.window.update()
+            
+            os.environ['OPENCV_AVFOUNDATION_SKIP_AUTH'] = '0'  # Force authorization
+            os.environ['OPENCV_VIDEOIO_DEBUG'] = '1'  # Enable debug output
+            
+            camera2 = cv2.VideoCapture(self.camera_index)
+            for i in range(5):
+                ret, frame = camera2.read()
+                if ret and frame is not None:
+                    cv2.imshow('Camera Access Required', frame)
+                    cv2.waitKey(200)
+                    self.status_var.set(f"Approach 2: Frame {i+1}/5 captured")
+                    self.window.update()
+            
+            camera2.release()
+            
+            # Approach 3: Try with different backend
+            self.status_var.set("Approach 3: Trying with different backend")
+            self.window.update()
+            
+            if hasattr(cv2, 'CAP_AVFOUNDATION'):
+                camera3 = cv2.VideoCapture(self.camera_index, cv2.CAP_AVFOUNDATION)
+                for i in range(5):
+                    ret, frame = camera3.read()
+                    if ret and frame is not None:
+                        cv2.imshow('Camera Access Required', frame)
+                        cv2.waitKey(200)
+                        self.status_var.set(f"Approach 3: Frame {i+1}/5 captured")
+                        self.window.update()
+                camera3.release()
+            
+            # Clean up
+            cv2.destroyAllWindows()
+            
+            # Reset environment variables
+            os.environ['OPENCV_AVFOUNDATION_SKIP_AUTH'] = '1'
+            
+            self.status_var.set("Camera permission request attempts completed")
+            self.window.update()
+            
+            # If we still don't have permission, show a dialog with manual instructions
+            test_capture = cv2.VideoCapture(self.camera_index)
+            has_permission = test_capture.isOpened() and test_capture.read()[0]
+            test_capture.release()
+            
+            if not has_permission:
+                result = messagebox.askquestion(
+                    "Manual Camera Permission Required",
+                    "The application couldn't automatically get camera permission.\n\n"
+                    "Would you like to open System Settings to manually add Terminal/Python?\n\n"
+                    "In System Settings:\n"
+                    "1. Click the '+' button under the list of applications\n"
+                    "2. Navigate to /Applications/Utilities and select Terminal\n"
+                    "3. Click 'Add' and ensure the checkbox is checked\n"
+                    "4. Restart this application",
+                    icon='info'
+                )
+                
+                if result == 'yes':
+                    try:
+                        subprocess.run(['open', 'x-apple.systempreferences:com.apple.preference.security?Privacy_Camera'])
+                    except Exception as e:
+                        print(f"Error opening System Settings: {e}")
+                        try:
+                            # Fallback to older method
+                            subprocess.run(['open', '/System/Library/PreferencePanes/Security.prefPane'])
+                            messagebox.showinfo(
+                                "Navigate to Camera Settings",
+                                "Please navigate to the Privacy tab, then select Camera from the list."
+                            )
+                        except Exception as e:
+                            print(f"Error opening Security preferences: {e}")
+                
+                # Inform the user they need to restart the app
+                messagebox.showinfo(
+                    "Restart Required",
+                    "After granting camera permissions, please restart this application."
+                )
+        
+        except Exception as e:
+            print(f"Error during camera permission request: {e}")
+            traceback.print_exc()
+            # Clean up in case of error
+            try:
+                cv2.destroyAllWindows()
+            except:
+                pass
+            
+            self.status_var.set("Ready")
 
 def main():
     # Create the main window

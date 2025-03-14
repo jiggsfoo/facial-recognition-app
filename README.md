@@ -41,6 +41,12 @@ mise run install
 mise exec -- pip install -r requirements.txt
 ```
 
+5. **macOS Users**: If you encounter camera permission issues, run the helper script:
+```bash
+./add_terminal_to_camera_permissions.sh
+```
+This script will help you add Terminal to the camera permissions list in macOS.
+
 Note: Installing `dlib` might require additional build tools. On macOS, you might need to install CMake:
 ```bash
 brew install cmake
@@ -66,13 +72,63 @@ To fix this issue, you can try:
 
 #### macOS Camera Permissions
 
-On macOS, you may need to grant camera permissions to use the webcam:
+On macOS, the application will automatically request camera permissions when needed:
 
-1. Go to System Preferences > Security & Privacy > Privacy > Camera
-2. Ensure that Terminal or Python has permission to access the camera
-3. If you've just granted permission, you may need to restart the application
+1. When you first run the application, it will:
+   - Attempt to access the camera to trigger the macOS permission dialog
+   - Display a visible camera preview window to ensure macOS registers the permission request
+   - Guide you through the permission granting process
 
-The application includes an Info.plist file for better compatibility with macOS camera features, including Continuity Camera (using your iPhone as a webcam). The application sets the necessary environment variables to handle camera authorization in macOS, but you still need to grant permissions in System Preferences.
+2. If permissions are not granted, the application will:
+   - Display a dialog explaining the need for camera access
+   - Offer to open System Settings directly to the Camera privacy settings
+   - Guide you through the permission granting process
+
+### Troubleshooting Camera Permissions on macOS
+
+If Terminal/Python doesn't appear in the Camera permissions list, you'll need to manually add it:
+
+1. **Use the helper script**:
+   ```bash
+   ./add_terminal_to_camera_permissions.sh
+   ```
+   This script will guide you through the process of adding Terminal to camera permissions.
+
+2. **Manually add Terminal**:
+   - Open System Settings > Privacy & Security > Camera
+   - Click the "+" button below the list of applications
+   - Navigate to `/Applications/Utilities/`
+   - Select "Terminal.app" and click "Add"
+   - Ensure the checkbox next to Terminal is checked
+
+3. **Alternative method for Python**:
+   - If you're using Python directly (not through Terminal), you may need to add Python instead
+   - Click the "+" button below the list of applications
+   - Navigate to where Python is installed (e.g., `/usr/local/bin/python3` or your mise installation)
+   - Select the Python executable and click "Add"
+   - Ensure the checkbox next to Python is checked
+
+4. **Restart the application** after granting permissions
+
+If you're still having issues:
+1. **Reset camera permissions**:
+   ```bash
+   tccutil reset Camera
+   ```
+   This will reset all camera permissions and require applications to request access again
+
+2. **Try running with sudo** (this may help trigger the permission dialog):
+   ```bash
+   sudo mise run gui
+   # or
+   sudo mise exec -- python gui_app.py
+   ```
+
+3. **Check Console.app** for permission-related messages:
+   - Open Console.app from Applications/Utilities
+   - Filter for "camera" or "privacy" to see if there are any relevant error messages
+
+The application includes an Info.plist file for better compatibility with macOS camera features, including Continuity Camera (using your iPhone as a webcam). The application sets the necessary environment variables to handle camera authorization in macOS.
 
 If you see warnings about AVCaptureDeviceTypeExternal being deprecated, these are informational and don't affect the functionality of the application.
 
@@ -150,18 +206,6 @@ This single-button approach is more efficient than continuous analysis, especial
 1. Click the "Add New Person" button in the GUI to start training a new face.
 2. Follow the on-screen instructions to capture multiple images of the new person.
 3. The application will automatically train a model based on the captured images.
-
-### macOS Camera Permissions
-
-On macOS, you may need to grant camera permissions to use the webcam:
-
-1. Go to System Preferences > Security & Privacy > Privacy > Camera
-2. Ensure that Terminal or Python has permission to access the camera
-3. If you've just granted permission, you may need to restart the application
-
-The application includes an Info.plist file for better compatibility with macOS camera features, including Continuity Camera (using your iPhone as a webcam). The application sets the necessary environment variables to handle camera authorization in macOS, but you still need to grant permissions in System Preferences.
-
-If you see warnings about AVCaptureDeviceTypeExternal being deprecated, these are informational and don't affect the functionality of the application.
 
 ## Mise Tasks
 

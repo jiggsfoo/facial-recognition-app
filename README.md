@@ -6,8 +6,8 @@ This application uses computer vision to detect and recognize faces through your
 
 1. Clone this repository:
 ```bash
-git clone https://github.com/yourusername/facial-recognition-demo.git
-cd facial-recognition-demo
+git clone https://github.com/jiggsfoo/facial-recognition-app.git
+cd facial-recognition-app
 ```
 
 2. Set up the Python environment using mise:

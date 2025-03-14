@@ -1,0 +1,21 @@
+<resources>
+    <string name="app_name">Facial Recognition</string>
+    <string name="capture_analyze">Capture &amp; Analyze</string>
+    <string name="add_new_person">Add New Person</string>
+    <string name="settings">Settings</string>
+    <string name="recognition_threshold">Recognition Threshold</string>
+    <string name="detection_scale">Detection Scale</string>
+    <string name="performance_mode">Performance Mode</string>
+    <string name="camera_permission_required">Camera permission is required for this app</string>
+    <string name="storage_permission_required">Storage permission is required to save face data</string>
+    <string name="unknown_face">Unknown</string>
+    <string name="enter_name">Enter name</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+    <string name="capture">Capture</string>
+    <string name="training_instructions">Position your face in the frame and capture multiple images from different angles</string>
+    <string name="training_complete">Training complete!</string>
+    <string name="no_face_detected">No face detected</string>
+    <string name="multiple_faces_detected">Multiple faces detected</string>
+    <string name="recognition_results">Recognition Results</string>
+</resources> 

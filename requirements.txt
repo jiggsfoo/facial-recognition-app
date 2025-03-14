@@ -1,0 +1,9 @@
+opencv-python==4.8.1.78
+face-recognition==1.3.0
+numpy==1.26.2
+dlib==19.24.2
+Pillow==10.1.0
+# Tkinter is included with Python and not installable via pip
+# On macOS: brew install python-tk
+# On Ubuntu/Debian: apt-get install python3-tk
+# On Windows: Included with Python installation 

@@ -1,0 +1,14 @@
+[tools]
+python = "latest"
+
+[env]
+# Environment variables can be set here
+PYTHONPATH = "."
+
+[tasks]
+# Define common tasks
+train = "python train_model.py"
+run = "python facial_recognition.py"
+gui = "python gui_app.py"
+install = "pip install -r requirements.txt"
+test-pil = "python test_pil_tk.py" 
